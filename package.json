@@ -1,0 +1,11 @@
+{
+  "name": "@skycoin4444/ai-object-detection",
+  "version": "1.0.0",
+  "description": "AI-powered object detection and classification system",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "test": "echo 'tests'",
+    "start": "node dist/index.js"
+  }
+}
