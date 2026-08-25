@@ -52,10 +52,41 @@ test('creates deterministic density alert from accepted events', () => {
   assert.match(alerts[0].description, /3 exceeded configured threshold 2/);
 });
 
-test('does not expose mutable internal history', () => {
+test('does not expose mutable internal detection state including nested metadata', () => {
   const engine = new DetectionEventEngine();
-  engine.record(detection());
+  const input = detection({ metadata: { nested: { score: 1 } } });
+  const recorded = engine.record(input)!;
+
+  input.boundingBox.width = 999;
+  (input.metadata!.nested as { score: number }).score = 2;
+  recorded.boundingBox.width = 888;
+  (recorded.metadata!.nested as { score: number }).score = 3;
+
   const history = engine.getDetectionHistory();
-  history[0].boundingBox.width = 999;
-  assert.equal(engine.getDetectionHistory()[0].boundingBox.width, 10);
+  assert.equal(history[0].boundingBox.width, 10);
+  assert.equal((history[0].metadata!.nested as { score: number }).score, 1);
+
+  (history[0].metadata!.nested as { score: number }).score = 4;
+  assert.equal((engine.getDetectionHistory()[0].metadata!.nested as { score: number }).score, 1);
+});
+
+test('anomaly IDs remain unique after retained history is trimmed', () => {
+  const engine = new DetectionEventEngine({ densityThreshold: 1, historyLimit: 1 });
+  const accepted = engine.recordBatch([detection({ id: 'one' }), detection({ id: 'two' })]);
+  const first = engine.detectDensityAnomaly(accepted, 999)[0];
+  const second = engine.detectDensityAnomaly(accepted, 999)[0];
+  assert.notEqual(first.id, second.id);
+  assert.equal(engine.getAnomalyAlerts().length, 1);
+});
+
+test('returned anomaly alerts cannot mutate retained anomaly state', () => {
+  const engine = new DetectionEventEngine({ densityThreshold: 1 });
+  const accepted = engine.recordBatch([detection({ id: 'one' }), detection({ id: 'two' })]);
+  const alert = engine.detectDensityAnomaly(accepted, 1000)[0];
+  alert.description = 'mutated';
+  alert.detections[0].boundingBox.width = 999;
+
+  const retained = engine.getAnomalyAlerts()[0];
+  assert.notEqual(retained.description, 'mutated');
+  assert.equal(retained.detections[0].boundingBox.width, 10);
 });
