@@ -40,6 +40,30 @@ function assertFiniteNonNegative(name: string, value: number): void {
   }
 }
 
+function cloneMetadata(metadata?: Record<string, unknown>): Record<string, unknown> | undefined {
+  if (metadata === undefined) return undefined;
+  try {
+    return structuredClone(metadata);
+  } catch (error) {
+    throw new TypeError('metadata must be structured-cloneable', { cause: error });
+  }
+}
+
+function cloneDetection(detection: DetectionResult): DetectionResult {
+  return {
+    ...detection,
+    boundingBox: { ...detection.boundingBox },
+    metadata: cloneMetadata(detection.metadata),
+  };
+}
+
+function cloneAlert(alert: AnomalyAlert): AnomalyAlert {
+  return {
+    ...alert,
+    detections: alert.detections.map(cloneDetection),
+  };
+}
+
 function validateDetection(input: DetectionInput): DetectionResult {
   const id = input.id.trim();
   const objectType = input.objectType.trim();
@@ -66,7 +90,7 @@ function validateDetection(input: DetectionInput): DetectionResult {
     id,
     objectType,
     boundingBox: { ...input.boundingBox },
-    metadata: input.metadata ? { ...input.metadata } : undefined,
+    metadata: cloneMetadata(input.metadata),
   };
 }
 
@@ -78,6 +102,7 @@ function validateDetection(input: DetectionInput): DetectionResult {
 export class DetectionEventEngine {
   private detections: DetectionResult[] = [];
   private anomalies: AnomalyAlert[] = [];
+  private anomalySequence = 0;
   private readonly confidenceThreshold: number;
   private readonly historyLimit: number;
   private readonly densityThreshold: number;
@@ -114,7 +139,7 @@ export class DetectionEventEngine {
     if (this.detections.length > this.historyLimit) {
       this.detections.splice(0, this.detections.length - this.historyLimit);
     }
-    return { ...detection, boundingBox: { ...detection.boundingBox } };
+    return cloneDetection(detection);
   }
 
   recordBatch(inputs: DetectionInput[]): DetectionResult[] {
@@ -124,33 +149,28 @@ export class DetectionEventEngine {
 
   detectDensityAnomaly(detections: DetectionResult[], timestamp = Date.now()): AnomalyAlert[] {
     if (detections.length <= this.densityThreshold) return [];
+    this.anomalySequence += 1;
     const alert: AnomalyAlert = {
-      id: `density-${timestamp}-${this.anomalies.length + 1}`,
+      id: `density-${timestamp}-${this.anomalySequence}`,
       type: 'high_density_detection',
       severity: 'high',
       description: `Detection count ${detections.length} exceeded configured threshold ${this.densityThreshold}`,
       timestamp,
-      detections: detections.slice(0, 5).map((item) => ({
-        ...item,
-        boundingBox: { ...item.boundingBox },
-      })),
+      detections: detections.slice(0, 5).map(cloneDetection),
     };
     this.anomalies.push(alert);
     if (this.anomalies.length > this.historyLimit) {
       this.anomalies.splice(0, this.anomalies.length - this.historyLimit);
     }
-    return [alert];
+    return [cloneAlert(alert)];
   }
 
   getDetectionHistory(): DetectionResult[] {
-    return this.detections.map((item) => ({ ...item, boundingBox: { ...item.boundingBox } }));
+    return this.detections.map(cloneDetection);
   }
 
   getAnomalyAlerts(): AnomalyAlert[] {
-    return this.anomalies.map((alert) => ({
-      ...alert,
-      detections: alert.detections.map((item) => ({ ...item, boundingBox: { ...item.boundingBox } })),
-    }));
+    return this.anomalies.map(cloneAlert);
   }
 }
 
