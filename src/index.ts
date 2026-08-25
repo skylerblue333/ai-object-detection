@@ -177,3 +177,5 @@ export class DetectionEventEngine {
 // Compatibility alias for existing imports; behavior is now event registration, not image inference.
 export const ObjectDetectionEngine = DetectionEventEngine;
 export default DetectionEventEngine;
+
+export * from './vision';
