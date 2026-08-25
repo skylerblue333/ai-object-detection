@@ -1,0 +1,26 @@
+name: detection-event-ci
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install
+        run: npm install --ignore-scripts
+      - name: Build
+        run: npm run build
+      - name: Tests
+        run: npm test
+      - name: Production dependency audit
+        run: npm audit --omit=dev --audit-level=high
