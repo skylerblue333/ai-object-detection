@@ -1,44 +1,62 @@
-<!-- PORTFOLIO PROJECT PROFILE: maintained by the repository owner -->
+# Sky Detection Event Engine
 
-## Project profile and code-audit snapshot
+Sky Detection Event Engine is a small TypeScript library for validating, filtering, retaining, and summarizing **detection events produced by an external computer-vision system**.
 
-**What this is:** **ai-object-detection** is a public repository described as: “Core component of SKYCOIN4444 ecosystem. #SkyCoin4444 #AI #Blockchain #DevOps #Innovation” Its dominant language signals are **TypeScript (1 files)**.
+## Status
 
-**Why it has value:** Its value is best understood through the implementation evidence currently present in the repository: **6 tracked files** were observed in the shallow audit, with the source structure and existing documentation providing the project’s specific context. This README does not treat a prototype, experiment, or archive as a production system without supporting evidence.
+**Engineering beta.** The library does not inspect images and does not run an AI/ML model. The earlier repository implementation returned hard-coded `person` and `vehicle` detections for every input; that simulated inference behavior has been removed from the active product path.
 
-**Implementation evidence:** No test-related file was detected by filename heuristics.; 1 dependency or package manifest(s) detected; No CI, build, Docker, or infrastructure signal was detected by the audit.; and 2 documentation or governance file(s) detected. Test filenames observed include none detected. Dependency or package files include `package.json`. Build, CI, or infrastructure signals include none detected.
+## Supported behavior
 
-**Current status:** The repository is tracked on the `main` branch. The existing source tree, configuration, tests, workflows, and documentation remain authoritative for supported behavior and maturity. A code audit is not a production-readiness certification, and the presence of a test or workflow file does not establish that all checks pass.
+- validates detection IDs and object labels;
+- validates confidence values in the inclusive range `0..1`;
+- validates finite non-negative bounding boxes with non-zero dimensions;
+- validates non-negative safe-integer timestamps;
+- filters events below a configurable confidence threshold;
+- bounds retained detection/anomaly history;
+- bounds batch submissions to 10,000 events;
+- emits deterministic high-density alerts when an accepted detection set exceeds a configured threshold;
+- returns defensive copies so callers cannot mutate retained state accidentally.
 
-**Relationship to the wider portfolio:** This repository is one focused component of the broader Skyler Blue Spillers portfolio across AI, software engineering, cloud and DevOps, cybersecurity, blockchain, finance, education, social systems, and creative work. It may provide a service boundary, implementation pattern, experiment, archive, or reusable idea for related repositories. Treat repositories as technical dependencies only where documented interfaces and verified project requirements support that relationship.
+## Install and verify
 
-**Quality and security note:** No obvious secret-like pattern was detected by the limited static scan; this is not a substitute for a security audit. No TODO/FIXME marker was detected in the scanned text files.
+```bash
+npm install
+npm run build
+npm test
+npm audit --omit=dev --audit-level=high
+```
 
----
+## Example
 
-# Ai Object Detection
+```ts
+import { DetectionEventEngine } from './src';
 
-![GitHub stars](https://img.shields.io/github/stars/skylerblue333/ai-object-detection?style=flat-square)
-![GitHub license](https://img.shields.io/github/license/skylerblue333/ai-object-detection?style=flat-square)
+const engine = new DetectionEventEngine({ confidenceThreshold: 0.8 });
 
-## 🌟 Overview
-**ai-object-detection** is a professional-grade project within the **SkyCoin4444** ecosystem. It focuses on delivering high-value solutions in the domain of **TypeScript**.
+engine.record({
+  id: 'camera-7:42',
+  objectType: 'person',
+  confidence: 0.91,
+  boundingBox: { x: 10, y: 20, width: 100, height: 180 },
+  timestamp: Date.now(),
+});
+```
 
-## 🚀 Key Features
-- **Scalable Architecture**: Designed for enterprise-level growth and performance.
-- **Modern Standards**: Implements best practices for clean code and maintainability.
-- **Robust Integration**: Built to work seamlessly within modern cloud-native environments.
+## Product boundary
 
-## 🛠️ Technology Stack
-- **Primary Domain**: TypeScript
-- **Ecosystem**: SkyCoin4444 Digital Platform
+This component is an event-validation and deterministic anomaly-summary primitive. It does **not** perform image decoding, neural-network inference, object classification, segmentation, tracking, model training, model hosting, accuracy benchmarking, video ingestion, persistence, authentication, tenant isolation, or production deployment.
 
-## 📂 Structure
-The project is organized into a modular structure to ensure clarity and ease of development.
+A real detector can produce events that conform to `DetectionInput`; this library can then enforce input contracts and provide bounded local history/anomaly logic before another service persists or routes those events.
 
-## 👨‍💻 Author
-**Skyler Blue Spillers**
-*Professional Chess Player & Software Engineer*
+## SKYCOIN4444 integration
 
----
-*Powered by SkyCoin4444*
+The component can sit behind a future vision provider or edge detector as a narrow validation boundary before events enter analytics, alerting, or observability systems. That integration should preserve the distinction between **model inference** and **event processing**.
+
+## Security and operations
+
+Treat metadata as untrusted application data. The library does not execute metadata, open files, make network requests, or deserialize model artifacts. State is process-local and disappears when the process exits. Memory is bounded by configured history and batch limits, but callers remain responsible for request-rate controls and authentication in any network service that wraps this library.
+
+## License
+
+MIT. See `LICENSE`.
